@@ -51,20 +51,23 @@ def get_materials(creds, course_ids):
             results = service.courses().courseWorkMaterials().list(courseId=course_id).execute()
             
             for courseWorkMaterial in results.get('courseWorkMaterial', []):
-                for material in courseWorkMaterial['materials']:
-                    drive_file = material['driveFile']['driveFile']
-                    file_id = drive_file['id']
-                    file_name = drive_file['title']
-                    if not course_materials.get(course_id, None):
-                        course_materials[course_id] = []
-                    course_materials[course_id].append({file_id: file_name})
+                for material in courseWorkMaterial.get('materials', []):
+                    try:
+                        drive_file = material['driveFile']['driveFile']
+                        file_id = drive_file['id']
+                        file_name = drive_file['title']
+                        if not course_materials.get(course_id, None):
+                            course_materials[course_id] = []
+                        course_materials[course_id].append({file_id: file_name})
+                    except:
+                        pass
 
         return course_materials
 
     except HttpError as error:
         print('An error occurred: %s' % error)
 
-def download_files(creds, materials, folders, path='./'):
+def download_files(creds, materials, course_ids, folders, path='./'):
 
     if not path:
         path = './'
@@ -72,26 +75,29 @@ def download_files(creds, materials, folders, path='./'):
     try:
         service = build('drive', 'v3', credentials=creds)
 
-        for i, course_id in enumerate(materials):
-            for material in materials[course_id]:
-                for file_id, file_name in material.items():
-                    request = service.files().get_media(fileId=file_id)
-                    file = io.BytesIO()
-                    downloader = MediaIoBaseDownload(file, request)
-                    done = False
-                    print(f'Downloading {file_name}...')
-                    while done is False:
-                        status, done = downloader.next_chunk()
-                        print(F'Status: {int(status.progress() * 100)}.')
-                        
-                    with open(f'{path}/{folders[i]}/{file_name}', 'wb') as f:
-                        f.write(file.getvalue())
+        for i, course_id in enumerate(course_ids):
+            try:
+                for material in materials[course_id]:
+                    for file_id, file_name in material.items():
+                        try:
+                            request = service.files().get_media(fileId=file_id)
+                            file = io.BytesIO()
+                            downloader = MediaIoBaseDownload(file, request)
+                            done = False
+                            print(f'Downloading {file_name}...')
+                            while done is False:
+                                status, done = downloader.next_chunk()
+                                print(F'Progress: {int(status.progress() * 100)}.')
+                                
+                            with open(f'{path}/{folders[i]}/{file_name}', 'wb') as f:
+                                f.write(file.getvalue())
+                        except:
+                            pass
+            except:
+                pass
 
     except HttpError as error:
         print(F'An error occurred: {error}')
-        file = None
-
-    return file.getvalue()
 
 def create_folder(folders, path='./'):
 
@@ -159,7 +165,7 @@ def main():
 
     materials = get_materials(creds, course_ids)
     folders = create_folder(course_names, download_path)
-    download_files(creds, materials, folders, download_path)
+    download_files(creds, materials, course_ids, folders, download_path)
     
 if __name__ == '__main__': 
     main()
