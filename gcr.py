@@ -10,7 +10,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 
-SCOPES = ['https://www.googleapis.com/auth/classroom.courses.readonly', 'https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly', 'https://www.googleapis.com/auth/drive.readonly']
+SCOPES = ['https://www.googleapis.com/auth/classroom.courses.readonly', 'https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly', 'https://www.googleapis.com/auth/classroom.coursework.me', 'https://www.googleapis.com/auth/classroom.announcements.readonly', 'https://www.googleapis.com/auth/drive.readonly']
 
 def get_course_ids_and_names(creds, course_names=None):
     try:
@@ -52,6 +52,34 @@ def get_materials(creds, course_ids):
             
             for courseWorkMaterial in results.get('courseWorkMaterial', []):
                 for material in courseWorkMaterial.get('materials', []):
+                    try:
+                        drive_file = material['driveFile']['driveFile']
+                        file_id = drive_file['id']
+                        file_name = drive_file['title']
+                        if not course_materials.get(course_id, None):
+                            course_materials[course_id] = []
+                        course_materials[course_id].append({file_id: file_name})
+                    except:
+                        pass
+            
+            results = service.courses().announcements().list(courseId=course_id).execute()
+
+            for announcement in results.get('announcements', []):
+                for material in announcement.get('materials', []):
+                    try:
+                        drive_file = material['driveFile']['driveFile']
+                        file_id = drive_file['id']
+                        file_name = drive_file['title']
+                        if not course_materials.get(course_id, None):
+                            course_materials[course_id] = []
+                        course_materials[course_id].append({file_id: file_name})
+                    except:
+                        pass
+
+            results = service.courses().courseWork().list(courseId=course_id).execute()
+
+            for courseWork in results.get('courseWork', []):
+                for material in courseWork.get('materials', []):
                     try:
                         drive_file = material['driveFile']['driveFile']
                         file_id = drive_file['id']
